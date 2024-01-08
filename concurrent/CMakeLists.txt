@@ -1,0 +1,3 @@
+add_subdirectory(csp)
+add_subdirectory(singleton)
+add_subdirectory(condition_variable)
