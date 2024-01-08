@@ -18,6 +18,8 @@ public:
     _queue.push(value);
     _cv.notify_one();
   }
+  // 这里传入引用的目的是让调用者分配内存，
+  // 如果遇到内存不足的情况，能保证_queue里面的数据完整性，不会等pop了以后才遇到这个错误（针对T占用内存较大）
   void pop(T& value) {
     std::unique_lock<std::mutex> lock(_mtx);
     _cv.wait(lock, [this] {return !_queue.empty();});
