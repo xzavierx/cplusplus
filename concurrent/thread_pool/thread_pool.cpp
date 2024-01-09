@@ -105,7 +105,7 @@ void quickSort(
   const auto& pivot = *start;
   auto iter = std::partition(start,end, [&](T const& t){return t < pivot;});
   // auto futureLower = ThreadPool::instance().commit(&quickSort<T>, input, start, iter);
-  std::future<void> futureLower = std::async(&quickSort<T>, input, start, iter);
+  std::future<void> futureLower = std::async(&quickSort<T>, std::ref(input), start, iter);
   quickSort(input, ++iter, end);
   futureLower.get();
 }
