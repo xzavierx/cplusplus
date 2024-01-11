@@ -56,6 +56,6 @@ void test_order_release2() {
 }
 
 int main() {
-  // test_order_release();
-  test_order_release3();
+  test_order_release();
+  // test_order_release2();
 }
