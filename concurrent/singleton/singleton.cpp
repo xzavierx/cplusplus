@@ -1,6 +1,9 @@
+#include <atomic>
 #include <iostream>
 #include <memory>
 #include <mutex>
+#include <thread>
+#include <cassert>
 // 在C++11以前在多线程环境下存在问题，多个线程同时访问， 存在多个线程初始化静态变量的情况
 // C++11以后不存在,要求编译器保证内部静态变量的线程安全性
 class Static {
@@ -63,6 +66,48 @@ private:
 };
 Lazy* Lazy::instance = nullptr;
 std::mutex Lazy::mtx;
+
+class LockFree {
+private:
+  LockFree() = default;
+  LockFree(const LockFree&) = delete;
+  LockFree& operator=(const LockFree&) = delete;
+
+public:
+  static LockFree* Instance() {
+    LockFree* p = nullptr; 
+    if ((p = instance.load(std::memory_order_acquire))) {
+      return p;
+    }
+    std::lock_guard<std::mutex> lock(mtx);
+    if ((p = instance.load(std::memory_order_relaxed))) {
+      std::cout << "load ok" << std::endl;
+      assert(p != nullptr);
+      return p;
+    }
+    p = new LockFree;
+    instance.store(p, std::memory_order_release);
+    return p;
+  }
+
+  static void TestLockFree() {
+    std::thread t1([]{
+      Instance();
+    });
+    std::thread t2([]{
+      Instance();
+    });
+    t1.join();t2.join();
+    delete Instance();
+    instance.store(nullptr, std::memory_order_relaxed);
+  }
+
+private:
+  static std::atomic<LockFree*> instance;
+  static std::mutex mtx;
+};
+std::atomic<LockFree*> LockFree::instance;
+std::mutex LockFree::mtx;
 
 // std::call_once能保证不会出现懒汉式的问题?
 class Once {
@@ -131,8 +176,13 @@ class Application: public Singleton<Application> {
 private:
   Application() = default;
   ~Application() = default;
+public:
+  static void Test() {
+    auto app = Application::Instance();
+  }
 }; 
 
 int main() {
-  auto app = Application::Instance();
+  while(true)
+    LockFree::TestLockFree();
 }
