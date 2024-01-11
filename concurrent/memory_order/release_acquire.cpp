@@ -16,10 +16,13 @@ void test_order_release() {
     data = 42;
     data2 = "ddd";
     ptr.store(p, std::memory_order_release);
+    std::cout << "store finished" << std::endl;
   });
   std::thread t2([]{
     std::string* p2;
-    while(!(p2 = ptr.load(std::memory_order_acquire)));
+    while(!(p2 = ptr.load(std::memory_order_acquire))) {
+      std::cout << "load failed" << std::endl;
+    }
     assert(*p2 == "Hello");
     assert(data == 42);
     assert(data2 == "ddd");
@@ -28,17 +31,7 @@ void test_order_release() {
   t2.join();
 }
 
-// 线程会卡住，因为必须要保证调用memory_order_release在前
 void test_order_release2() {
-  std::thread t3([=]{
-    std::string* p2;
-    while(!(p2 = ptr.load(std::memory_order_acquire)));
-    std::cout << "load finished" << std::endl; 
-  });
-  t3.join();
-}
-
-void test_order_release3() {
   static std::vector<int> data;
   static std::atomic<int> flag;
 
