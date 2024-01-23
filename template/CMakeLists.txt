@@ -1,0 +1,2 @@
+add_executable(argument_mapper)
+target_sources(argument_mapper PRIVATE argument_mapper.cpp)
