@@ -13,7 +13,7 @@ private:
   std::mutex _mtx;
   std::condition_variable _cv_producer;
   std::condition_variable _cv_consumer;
-  size_t _capacity;
+  size_t _capacity; //_capacity为0代表无缓冲队列
   bool _closed = false;
 
 public:
@@ -22,6 +22,10 @@ public:
   bool send(T value) {
     std::unique_lock<std::mutex> lock(_mtx);
     _cv_producer.wait(lock, [this]{
+      // 退出条件：
+      // 1. 无缓冲队列，必须队列为空
+      // 2. 有缓冲队列，队列不能满
+      // 3. 通道已关闭
       return (_capacity == 0 && _queue.empty()) || _queue.size() < _capacity || _closed;
     });
     if (_closed) {
@@ -35,6 +39,7 @@ public:
   bool receive(T &value) {
     std::unique_lock<std::mutex> lock(_mtx);
     _cv_consumer.wait(lock, [this]{ return !_queue.empty() || _closed; });
+    // 当队列关闭后，需要将通道剩余的内容接收完毕
     if (_closed && _queue.empty()) {
       return false;
     }

@@ -9,7 +9,7 @@ void quicksort(ForwardIt first, ForwardIt last) {
     return;
 
   auto pivot = *first;
-  // std::partition将元素分为两组 条件为true的在第一组，条件为false的在第二组, 返回值是第二组的第一个位置
+  // std::partition将元素分为两组 条件为true的在前面第一组，条件为false的在第二组, 返回值是第二组的第一个位置
   auto middle1 = std::partition(first, last, [pivot](const auto& em) {
     return em < pivot;
   });
