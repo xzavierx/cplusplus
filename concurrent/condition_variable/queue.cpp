@@ -22,6 +22,8 @@ public:
   // 如果遇到内存不足的情况，能保证_queue里面的数据完整性，不会等pop了以后才遇到这个错误（针对T占用内存较大）,让数据落地
   void pop(T& value) {
     std::unique_lock<std::mutex> lock(_mtx);
+    // 当条件不满足时(也就是_queue.empty()返回true)，_cv.wait就会挂起
+    // 当条件满足时，_cv.wait就会被唤醒, _cv.wait理解成一直等待直到条件满足
     _cv.wait(lock, [this] {return !_queue.empty();});
     value = _queue.front();
     std::cout << std::this_thread::get_id() << "-" << "pop:" << value << std::endl;

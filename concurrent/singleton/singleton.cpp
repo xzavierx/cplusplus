@@ -42,6 +42,7 @@ Eager* Eager::instance = nullptr;
 // 3. 将地址返回并赋值
 // 编译器存在优化，执行顺序发生颠倒，1-2-3变成了1-3-2时，instance还未初始化好，就返回，其他线程获取的指针指向了未初始化的对象。
 // 在C++11以后，可以使用atomic<Lazy*> instance来解决
+// 2024-03-06 新疑问，调用了mtx.lock()以后，是否保证了内存序的顺序，不会出现上面的问题呢？
 class Lazy {
 private:
   Lazy() = default;
@@ -57,6 +58,7 @@ public:
       mtx.unlock();
       return instance;
     }
+    instance = new Lazy();
     mtx.unlock();
     return instance;
   }
@@ -110,6 +112,7 @@ std::atomic<LockFree*> LockFree::instance;
 std::mutex LockFree::mtx;
 
 // std::call_once能保证不会出现懒汉式的问题?
+// 2024-03-06 std::call_once解决了懒汉式的问题
 class Once {
 private:
   Once(){};

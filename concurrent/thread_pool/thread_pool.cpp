@@ -102,7 +102,8 @@ void quickSort(
   if (start == end) {
     return ;
   } 
-  const auto& pivot = *start;
+  // 这里不能用引用，否则会导致在partition的过程中发生修改
+  const auto pivot = *start;
   auto iter = std::partition(start,end, [&](T const& t){return t < pivot;});
   // auto futureLower = ThreadPool::instance().commit(&quickSort<T>, input, start, iter);
   std::future<void> futureLower = std::async(&quickSort<T>, std::ref(input), start, iter);
@@ -119,7 +120,9 @@ std::list<T> parallel_quick_sort(std::list<T> input)
         return input;
     }
     std::list<T> result;
+    //list::splice实现list拼接功能，将源list的内容部分或全部删除，插入到目的list
     result.splice(result.begin(), input, input.begin());
+    // 取result的第一个元素
     T const& pivot = *result.begin();
     auto divide_point = std::partition(input.begin(), input.end(),
         [&](T const& t) {return t < pivot; });
@@ -127,14 +130,21 @@ std::list<T> parallel_quick_sort(std::list<T> input)
     lower_part.splice(lower_part.end(), input, input.begin(),
         divide_point);
     // ①因为lower_part是副本，所以并行操作不会引发逻辑错误，这里可以启动future做排序
+    // 线程数量随着调用层数增加而翻倍
+    /*        input(main)           1个线程
+            /           \
+          l1(t1)         h1(main)   2个线程
+          /  \          /  \
+      l2(t2) h2(t1) l2(t3) h2(main) 4个线程
+    */  
     std::future<std::list<T>> new_lower(
         std::async(&parallel_quick_sort<T>, std::move(lower_part)));
-    // ②
     auto new_higher(
         parallel_quick_sort(std::move(input)));    
-        result.splice(result.end(), new_higher);    
-        result.splice(result.begin(), new_lower.get());    
-        return result;
+    // result中存在一个中间元素，然后将大的部分往后插入，小的部分往前插入
+    result.splice(result.end(), new_higher);    
+    result.splice(result.begin(), new_lower.get());    
+    return result;
 }
 
 template<typename T>
@@ -145,6 +155,7 @@ std::list<T> thread_pool_quick_sort(std::list<T> input)
         return input;
     }
     std::list<T> result;
+    //list::splice实现list拼接功能，将源list的内容部分或全部删除，插入到目的list
     result.splice(result.begin(), input, input.begin());
     T const& pivot = *result.begin();
     auto divide_point = std::partition(input.begin(), input.end(),
@@ -162,6 +173,31 @@ std::list<T> thread_pool_quick_sort(std::list<T> input)
     return result;
 }
 
+void test_quickSort() {
+  std::list<int> a = {5, 1, 8, 2, 3, 4, 7, 9, 0};
+  // std::partition(a.begin(), a.end(), [&](int const& t) { return t < 5; });
+  quickSort(a, a.begin(), a.end());
+  std::copy(a.begin(), a.end(), std::ostream_iterator<int>(std::cout, " "));
+  std::cout << std::endl;
+}
+
+void test_parallel_quick_sort() {
+  std::list<int> a = {5, 1, 8, 2, 3, 4, 7, 9, 0};
+  auto sort_result = parallel_quick_sort(a);
+  std::copy(sort_result.begin(), sort_result.end(), 
+    std::ostream_iterator<int>(std::cout, " "));
+  std::cout << std::endl;
+}
+
+void test_thread_pool_quick_sort() {
+  std::list<int> numlists = { 6,1,0,7,5,2,9,-1 };
+    auto sort_result = thread_pool_quick_sort(numlists);
+    std::cout << "sorted result is ";
+    for (auto iter = sort_result.begin(); iter != sort_result.end(); iter++) {
+        std::cout << " " << (*iter);
+    }
+  std::cout << std::endl;
+}
 
 int main() {
   // int m = 0;
@@ -172,19 +208,9 @@ int main() {
   // future.get();
   // std::cout << "in main thread, m:" << m << std::endl;
 
-  std::list<int> a = {5, 1, 8, 2, 3, 4, 7, 9, 0};
-  quickSort(a, a.begin(), a.end());
-  // auto iter = std::partition(a.begin(), a.end(), [&](int const& t){return t < 5;}); 
-  // std::cout << *iter << std::endl;
-  std::copy(a.begin(), a.end(), std::ostream_iterator<int>(std::cout, " "));
-  std::cout << std::endl;
+  test_quickSort();
+  // test_parallel_quick_sort();
+  // test_thread_pool_quick_sort();
 
-  // std::list<int> numlists = { 6,1,0,7,5,2,9,-1 };
-  //   auto sort_result = thread_pool_quick_sort(numlists);
-  //   std::cout << "sorted result is ";
-  //   for (auto iter = sort_result.begin(); iter != sort_result.end(); iter++) {
-  //       std::cout << " " << (*iter);
-  //   }
-  // std::cout << std::endl;
   return 0;
 }

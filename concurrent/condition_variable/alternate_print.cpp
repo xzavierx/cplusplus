@@ -11,6 +11,7 @@ public:
     std::thread t1([this]{
       for (;;) {
         std::unique_lock<std::mutex> lock(_mtx);
+        // 当条件不满足时，_cv1.wait就会挂起，等待线程t2通知唤醒，线程t2采用的是_cv1.notify_one
         _cv1.wait(lock, [this]{
           return _num == 1;
         });
@@ -23,6 +24,7 @@ public:
     std::thread t2([this]{
       for (;;) {
         std::unique_lock<std::mutex> lock(_mtx);
+        // 当条件不满足时，_cv2.wait就会挂起，等待线程t1通知唤醒，线程t1采用的是_cv2.notify_one
         _cv2.wait(lock, [this]{
           return _num == 2;
         });
