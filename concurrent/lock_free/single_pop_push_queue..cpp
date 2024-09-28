@@ -5,6 +5,10 @@
 
 template <typename T>
 class SinglePopPushQueue{
+  struct node {
+    std::shared_ptr<T> data;
+    node* next = nullptr;
+  };
 public:
   SinglePopPushQueue():
     _head(new node), _tail(_head.load()) { }
@@ -38,7 +42,6 @@ public:
     _tail.store(p);
   }
 
-
 private:
   node* popHead() {
     node* const oldHead = _head.load();
@@ -49,10 +52,6 @@ private:
     return oldHead;
   }
 
-  struct node {
-    std::shared_ptr<T> data;
-    node* next = nullptr;
-  };
   std::atomic<node*> _head;
   std::atomic<node*> _tail;
 };
