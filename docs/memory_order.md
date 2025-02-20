@@ -28,11 +28,51 @@ D happens before A, B happens before C;
 释放-获取定序，同步仅建立在释放或获得同一原子变量的线程之间。其他线程可能看到与被同步线程的一者或两者相异的内存访问顺序。
 
 ### 释放-获取定序
+A线程：memory_order_release，B线程：memory_order_acquire
 若线程A中的一个原子存储被标以memory_order_release，而线程B中从同一变量的原子加载被标以memory_order_acquire，且线程B中的加载读取到了线程A中的存储所写入的值，则线程A中的存储同步于线程B中的加载。
-从线程A的视角先发生于原子存储的所有内存写入（包括非原子及宽松原子的），在线程B中成为可见副效应。即一旦原子加载完成，则线程B能观察到线程A写入内存的所有内容。
+A线程发生在原子存储前的内存写入，在线程B中观察到A的新内存内容;
 同步仅建立在释放和获得同一原子变量的线程之间。其他线程可能看到与被同步线程的一者或两者相异的内存访问顺序。
 
 ### 释放-消费定序
+A线程：std::memory_order_release， B线程：std::memory_order_consume 
 与释放-获取定序在与读进行了优化：
-* std::memory_order_acquire要求后面所有的读都不得提前
-* std::memory_order_consume是要求后面依赖于该操作的读不能乱序，一个是针对所有读，一个只是依赖于consume这条语句的读
+* std::memory_order_acquire要求后面所有的读都不得提前, 及之前的所有变量
+* std::memory_order_consume是要求后面依赖于该操作的读不能乱序，一个是针对所有读，一个只是依赖于使用的这个变量
+```cpp
+// acquire
+void producer()
+{
+  std::string* p = new std::string("Hello");
+  data = 42;
+  ptr.store(p, std::memory_order_release);
+}
+ 
+void consumer()
+{
+  std::string* p2;
+  while (!(p2 = ptr.load(std::memory_order_acquire)))
+    ;
+  assert(*p2 == "Hello"); // 绝无问题
+  assert(data == 42); // 绝无问题
+}
+// consume
+void producer()
+{
+  std::string* p = new std::string("Hello");
+  data = 42;
+  ptr.store(p, std::memory_order_release);
+}
+ 
+void consumer()
+{
+  std::string* p2;
+  while (!(p2 = ptr.load(std::memory_order_consume)))
+      ;
+  assert(*p2 == "Hello"); // 绝无出错： *p2 从 ptr 携带依赖
+  assert(data == 42); // 可能也可能不会出错： data 不从 ptr 携带依赖
+}
+```
+
+### 序列一致定序
+被标为 memory_order_seq_cst 的原子操作不仅以与释放-获得定序相同的方式进行内存定序（在一个线程中先发生于存储的任何副作用都变成进行加载的线程中的可见副作用），
+还对所有带此标签的内存操作建立了一个单独全序

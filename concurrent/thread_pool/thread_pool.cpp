@@ -1,5 +1,9 @@
 #include "thread_pool.h"
 
+int add(int a, int b) {
+  return a+b;
+}
+
 int main() {
   int m = 0;
   auto future = ThreadPool::instance().commit([](int& m){

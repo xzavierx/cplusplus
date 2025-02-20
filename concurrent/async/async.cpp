@@ -36,7 +36,8 @@ void Promise() {
 void SharedPromise() {
   std::promise<int> promise;
   // 多个线程等待同一个异步操作的结果,
-  // 此时shared_future::get调用多次都不会出现问题，应该不会消耗内部状态了
+  // 此时shared_future::get调用多次都不会出现问题，返回相同的结果，不会再次计算或阻塞
+  // 而future调用一次以后，再次调用则会抛出异常或者崩溃
   std::shared_future<int> future = promise.get_future();
   std::thread thread1(setValue, std::move(promise));
 

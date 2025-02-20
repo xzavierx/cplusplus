@@ -42,7 +42,6 @@ Eager* Eager::instance = nullptr;
 // 3. 将地址返回并赋值
 // 编译器存在优化，执行顺序发生颠倒，1-2-3变成了1-3-2时，instance还未初始化好，就返回，其他线程获取的指针指向了未初始化的对象。
 // 在C++11以后，可以使用atomic<Lazy*> instance来解决
-// 2024-03-06 新疑问，调用了mtx.lock()以后，是否保证了内存序的顺序，不会出现上面的问题呢？
 class Lazy {
 private:
   Lazy() = default;
@@ -50,14 +49,17 @@ private:
   Lazy& operator=(const Lazy&) = delete;
 public:
   static Lazy* Instance() {
+    // instance先初始化，指向的内存还未构建完成，那么就存在问题
     if (instance != nullptr) {
       return instance;
     }
+    // 存在系统调用和上下文切换，这样会导致较大的开销
     mtx.lock();
     if (instance != nullptr) {
       mtx.unlock();
       return instance;
     }
+    // instance先赋值，然后再分配内存，那么第二个线程会在第一次检查时直接获取到instance地址，
     instance = new Lazy();
     mtx.unlock();
     return instance;
@@ -77,10 +79,13 @@ private:
 
 public:
   static LockFree* Instance() {
+    // 无锁检查：通过 instance.load(std::memory_order_acquire) 快速检查实例是否已创建
+    // 低开效：通常只需几条CPU指令，开销非常低, 而且通常时非阻塞的，不会导致线程挂起或上下文切换, 比mutex至少小几十倍
     LockFree* p = nullptr; 
     if ((p = instance.load(std::memory_order_acquire))) {
       return p;
     }
+    // 加锁创建：确保只有一个实例创建实例
     std::lock_guard<std::mutex> lock(mtx);
     if ((p = instance.load(std::memory_order_relaxed))) {
       std::cout << "load ok" << std::endl;
@@ -88,6 +93,7 @@ public:
       return p;
     }
     p = new LockFree;
+    // 创建实例后，使用 instance.store(p, std::memory_order_release) 原子地存储实例指针
     instance.store(p, std::memory_order_release);
     return p;
   }
